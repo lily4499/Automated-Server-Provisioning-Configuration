@@ -248,4 +248,3 @@ Liliane Konissi — [GitHub](https://github.com/lily4499)
 
 ```
 
-Let me know if you'd like a visual diagram or want this turned into a GitHub Pages site!
