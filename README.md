@@ -18,7 +18,8 @@ Push-button provisioning and configuration of a production-ready stack on AWS EC
 
 ## 📁 Project Structure
 
-```
+```bash
+
 automated-deployment/
 │
 ├── provision.sh                  # Bash script to provision EC2
@@ -33,7 +34,6 @@ automated-deployment/
 │       │   └── tasks/main.yml
 │       └── nodeapp/
 │           └── tasks/main.yml
-```
 
 ---
 
