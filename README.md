@@ -35,6 +35,35 @@ automated-deployment/
 │       └── nodeapp/
 │           └── tasks/main.yml
 
+
+### `setup-files.py`
+
+```python
+import os
+
+# Directory structure
+structure = [
+    "automated-deployment/provision.sh",
+    "automated-deployment/setup_app.py",
+    "automated-deployment/ansible/inventory",
+    "automated-deployment/ansible/playbook.yml",
+    "automated-deployment/ansible/roles/nginx/tasks/main.yml",
+    "automated-deployment/ansible/roles/mongodb/tasks/main.yml",
+    "automated-deployment/ansible/roles/nodeapp/tasks/main.yml"
+]
+
+# Create directories and empty files
+for path in structure:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        f.write("")  # Create an empty file
+
+"Files and directories have been created."
+
+### Run:
+```bash
+python3 setup-files.py
+
 ---
 
 ## 🔰 Prerequisites
@@ -54,9 +83,9 @@ automated-deployment/
 ```bash
 #!/bin/bash
 
-AMI_ID="ami-0c02fb55956c7d316"
+AMI_ID="ami-084568db4383264d4"
 INSTANCE_TYPE="t2.micro"
-KEY_NAME="my-key"
+KEY_NAME="ec2-devops-key"
 SECURITY_GROUP="web-sg"
 REGION="us-east-1"
 
@@ -64,6 +93,7 @@ aws ec2 create-security-group --group-name $SECURITY_GROUP --description "Web se
 
 aws ec2 authorize-security-group-ingress --group-name $SECURITY_GROUP --protocol tcp --port 22 --cidr 0.0.0.0/0
 aws ec2 authorize-security-group-ingress --group-name $SECURITY_GROUP --protocol tcp --port 80 --cidr 0.0.0.0/0
+aws ec2 authorize-security-group-ingress --group-name $SECURITY_GROUP --protocol tcp --port 3000 --cidr 0.0.0.0/0
 
 INSTANCE_ID=$(aws ec2 run-instances \
   --image-id $AMI_ID \
@@ -105,10 +135,10 @@ def run(command):
 def main():
     run("sudo apt update")
     run("sudo apt install -y git")
-    run("git clone https://github.com/lily4499/demo-node-app.git")
+    run("git clone https://github.com/lily4499/devops-demo.git")
     run("curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -")
     run("sudo apt install -y nodejs")
-    run("cd demo-node-app && npm install")
+    run("cd devops-demo && npm install")
     print("Node.js app setup complete.")
 
 if __name__ == "__main__":
@@ -117,9 +147,12 @@ if __name__ == "__main__":
 
 ### Run:
 ```bash
-scp -i my-key.pem setup_app.py ubuntu@<PUBLIC_IP>:~
-ssh -i my-key.pem ubuntu@<PUBLIC_IP>
+scp -i /home/lilia/ec2.pem setup_app.py ubuntu@<PUBLIC_IP>:~
+ssh -i /home/lilia/ec2.pem ubuntu@<PUBLIC_IP>
 python3 setup_app.py
+cd devops-demo
+node app.js
+
 ```
 
 ---
@@ -129,7 +162,7 @@ python3 setup_app.py
 ### `ansible/inventory`
 
 ```ini
-webserver ansible_host=<PUBLIC_IP> ansible_user=ubuntu ansible_ssh_private_key_file=~/path/to/my-key.pem
+webserver ansible_host=<PUBLIC_IP> ansible_user=ubuntu ansible_ssh_private_key_file=/home/lilia/ec2.pem
 ```
 
 ### `ansible/playbook.yml`
@@ -146,6 +179,8 @@ webserver ansible_host=<PUBLIC_IP> ansible_user=ubuntu ansible_ssh_private_key_f
 
 ### Role: `nginx/tasks/main.yml`
 
+ vim ansible/roles/nginx/tasks/main.yml
+
 ```yaml
 - name: Install NGINX
   apt:
@@ -157,9 +192,35 @@ webserver ansible_host=<PUBLIC_IP> ansible_user=ubuntu ansible_ssh_private_key_f
     name: nginx
     state: started
     enabled: true
+
+- name: Copy NGINX reverse proxy config
+  copy:
+    dest: /etc/nginx/sites-available/default
+    content: |
+      server {
+          listen 80;
+          server_name localhost;
+
+          location / {
+              proxy_pass http://localhost:3000;
+              proxy_http_version 1.1;
+              proxy_set_header Upgrade $http_upgrade;
+              proxy_set_header Connection 'upgrade';
+              proxy_set_header Host $host;
+              proxy_cache_bypass $http_upgrade;
+          }
+      }
+
+- name: Reload NGINX
+  service:
+    name: nginx
+    state: reloaded
+
 ```
 
 ### Role: `mongodb/tasks/main.yml`
+
+vim ansible/roles/mongodb/tasks/main.yml
 
 ```yaml
 - name: Import MongoDB key
@@ -187,6 +248,8 @@ webserver ansible_host=<PUBLIC_IP> ansible_user=ubuntu ansible_ssh_private_key_f
 
 ### Role: `nodeapp/tasks/main.yml`
 
+vim ansible/roles/nodeapp/tasks/main.yml
+
 ```yaml
 - name: Install Node.js
   shell: |
@@ -197,7 +260,7 @@ webserver ansible_host=<PUBLIC_IP> ansible_user=ubuntu ansible_ssh_private_key_f
 
 - name: Clone Node.js app
   git:
-    repo: https://github.com/lily4499/demo-node-app.git
+    repo: https://github.com/lily4499/devops-demo.git
     dest: /home/ubuntu/nodeapp
 
 - name: Install app dependencies
@@ -209,10 +272,13 @@ webserver ansible_host=<PUBLIC_IP> ansible_user=ubuntu ansible_ssh_private_key_f
   shell: nohup node app.js &
   args:
     chdir: /home/ubuntu/nodeapp
+
+
 ```
 
 ### Run:
 ```bash
+sudo apt install ansible-core
 cd ansible
 ansible-playbook -i inventory playbook.yml
 ```
@@ -244,7 +310,8 @@ You should see your Node.js app served by NGINX, connected to MongoDB.
 
 ## 🧠 Author
 
-Liliane Konissi — [GitHub](https://github.com/lily4499)
+Liliane Konissi — [GitHub](https://github.com/lily4499/Automated-Server-Provisioning-Configuration
+)
 
 ```
 
